@@ -1,0 +1,3 @@
+elfie-data-*/
+elfie-container-*
+.devcontainer/certs/*.crt

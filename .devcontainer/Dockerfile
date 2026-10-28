@@ -2,6 +2,16 @@ FROM mcr.microsoft.com/vscode/devcontainers/python:1-3.12-bookworm
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+# Trust the Netskope TLS-inspection CA exported by export-host-certs.sh (absent off-VPN/non-macOS).
+COPY .devcontainer/certs/ /usr/local/share/ca-certificates/netskope/
+RUN update-ca-certificates
+# Point tools that ship their own CA bundle (node, pip/requests, uv, gcloud) at the system bundle.
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt \
+    CLOUDSDK_CORE_CUSTOM_CA_CERTS_FILE=/etc/ssl/certs/ca-certificates.crt
+
 RUN rm -f /etc/apt/sources.list.d/yarn.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
