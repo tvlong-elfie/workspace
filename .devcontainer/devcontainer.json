@@ -1,0 +1,30 @@
+{
+  "name": "elfie-dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": true,
+      "dockerDashComposeVersion": "v2"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts",
+      "nodeGypDependencies": false
+    },
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+  },
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+    "source=elfie-gcloud,target=/home/vscode/.config/gcloud,type=volume",
+    "source=elfie-claude,target=/home/vscode/.claude,type=volume",
+    "source=elfie-gh,target=/home/vscode/.config/gh,type=volume",
+    "source=elfie-ssh,target=/home/vscode/.ssh,type=volume"
+  ],
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude /home/vscode/.config /home/vscode/.ssh && chmod 700 /home/vscode/.ssh && git --version && gcloud --version && gh --version && python --version && uv --version && docker --version && docker compose version"
+}
