@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Export the Netskope TLS-inspection CA chain from the macOS keychain so the
-# devcontainer image can trust it. Runs on the HOST as devcontainer.json's initializeCommand.
+# dev image can trust it. Runs on the HOST; setup.sh calls it before each image build.
 #
-# Writes .devcontainer/certs/netskope.crt. On hosts without Netskope (or non-macOS)
+# Writes k8s/dev/certs/netskope.crt. On hosts without Netskope (or non-macOS)
 # it writes nothing and the image build just skips the extra CA.
 set -euo pipefail
 

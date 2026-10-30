@@ -1,3 +1,4 @@
 elfie-data-*/
 elfie-container-*
-.devcontainer/certs/*.crt
+k8s/dev/certs/*.crt
+elfie-dev-*.tar.gpg
