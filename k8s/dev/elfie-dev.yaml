@@ -1,0 +1,165 @@
+# Dev pod for VS Code Remote-SSH. Persistent state lives on PVCs, so the pod can be
+# upgraded, restarted, or recreated without losing it. The workspace is a host path.
+# Apply with setup.sh; it creates the authorized-keys Secret first.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elfie-dev-claude
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elfie-dev-gcloud
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elfie-dev-gh
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elfie-dev-ssh
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+# VS Code server and its extensions (about 2 GB). Kept on a PVC so they survive image rebuilds.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elfie-dev-vscode-server
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+# The dev pod's identity on the cluster. entrypoint.sh builds a kubeconfig from its token.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: elfie-dev
+---
+# Local minikube only: the dev pod manages the cluster with full admin rights.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: elfie-dev-cluster-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: elfie-dev
+    namespace: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elfie-dev
+  labels:
+    app: elfie-dev
+spec:
+  replicas: 1
+  # ReadWriteOnce volumes can attach to one node only, so replace the pod instead of overlapping it.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: elfie-dev
+  template:
+    metadata:
+      labels:
+        app: elfie-dev
+    spec:
+      serviceAccountName: elfie-dev
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: dev
+          image: local/elfie-dev:latest
+          # Use the image loaded into minikube by setup.sh; there is no registry.
+          imagePullPolicy: Never
+          ports:
+            - name: ssh
+              containerPort: 2222
+              # Exposes sshd on the minikube node IP (see ~/.ssh/config alias). Port 22 is
+              # avoided: the minikube VM's own sshd already listens there.
+              hostPort: 2222
+          env:
+            - name: CLAUDE_CONFIG_DIR
+              value: /home/vscode/.claude
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspaces/elfie
+            - name: claude
+              mountPath: /home/vscode/.claude
+            - name: gcloud
+              mountPath: /home/vscode/.config/gcloud
+            - name: gh
+              mountPath: /home/vscode/.config/gh
+            - name: ssh
+              mountPath: /home/vscode/.ssh
+            - name: vscode-server
+              mountPath: /home/vscode/.vscode-server
+            - name: authorized-keys
+              mountPath: /etc/elfie-dev
+              readOnly: true
+      volumes:
+        # Host path mounted into minikube by setup.sh (--mount-string).
+        - name: workspace
+          hostPath:
+            path: /host-elfie
+            type: Directory
+        - name: claude
+          persistentVolumeClaim:
+            claimName: elfie-dev-claude
+        - name: gcloud
+          persistentVolumeClaim:
+            claimName: elfie-dev-gcloud
+        - name: gh
+          persistentVolumeClaim:
+            claimName: elfie-dev-gh
+        - name: ssh
+          persistentVolumeClaim:
+            claimName: elfie-dev-ssh
+        - name: vscode-server
+          persistentVolumeClaim:
+            claimName: elfie-dev-vscode-server
+        - name: authorized-keys
+          secret:
+            secretName: elfie-dev-authorized-keys
+            defaultMode: 0644
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elfie-dev
+spec:
+  selector:
+    app: elfie-dev
+  ports:
+    - name: ssh
+      port: 2222
+      targetPort: ssh
